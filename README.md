@@ -1,2 +1,309 @@
-# Sequential 32-bit ALU
-Design and testbench for a simple 32-bit ALU which performs addition, subtraction, BOOTH multiplication, arithmetic left, right shifts, logical AND, OR.
+# FFVDD AHP
+## CAR PARKING SYSTEM
+
+### Introduction
+
+This simple project is to implement a car parking system in Verilog. The Verilog code for the car parking system is fully presented.
+In the entrance of the parking system, there is a sensor which is activated to detect a vehicle coming. Once the sensor is triggered, a password is requested to open the gate. If the entered password is correct, the gate would open to let the vehicle get in. Otherwise, the gate is still locked. If the current car is getting in the car park being detected by the exit sensor and another the car comes, the door will be locked and requires the coming car to enter passwords.
+
+![image](https://github.com/ShashidharReddy01/FFVDD/assets/142148810/899e38f8-309d-4451-b9cf-fb4c76f3e77f)
+
+<details>
+<summary>Algorithm</summary>
+
+
+1. Vehicle Detection:
+   - When a vehicle approaches the entrance of the parking system, a sensor is activated to detect its presence.
+
+2. Request for Password:
+   - Once the sensor is triggered and a vehicle is detected, the system requests a password to open the gate. This is typically done via an input interface, such as a keypad or a mobile app.
+
+3. Password Entry:
+   - The driver or user of the vehicle enters the required password using the input interface.
+
+4. Password Verification:
+   - The entered password is compared to a pre-defined correct password or a database of authorized users. The system checks if the entered password is correct.
+
+5. Gate Operation:
+   - If the entered password is correct, the gate opens to allow the vehicle to enter the parking area.
+
+6. Gate Locking:
+   - If the entered password is incorrect, the gate remains locked. The vehicle is not granted access, and the driver may need to re-enter the correct password.
+
+7. Exit Detection:
+   - As a vehicle enters, it is detected by an entrance sensor. Simultaneously, the parking system keeps track of the vehicles within the parking area.
+
+8. Preventing Multiple Entries:
+   - If another vehicle approaches while the first vehicle is still in the process of entering and hasn't completely cleared the gate, the gate remains locked. The second vehicle will also need to enter the correct password.
+
+9. Monitoring and Management:
+   - The parking system may have monitoring and management capabilities, such as recording entry and exit times, managing access permissions, and providing data on parking availability.
+
+This process ensures that only authorized vehicles with the correct password can enter the parking area. Additionally, it prevents multiple vehicles from entering simultaneously, maintaining security and control over access to the parking facility.
+</details>
+
+<details>
+<summary>Design</summary>
+
+```
+module parking_system( 
+                input clk,reset_n,
+ input sensor_entrance, sensor_exit, 
+ input [1:0] password_1, password_2,
+ output wire GREEN_LED,RED_LED,
+ output reg [6:0] HEX_1, HEX_2
+    );
+ parameter IDLE = 3'b000, WAIT_PASSWORD = 3'b001, WRONG_PASS = 3'b010, RIGHT_PASS = 3'b011,STOP = 3'b100;
+ // Moore FSM : output just depends on the current state
+ reg[2:0] current_state, next_state;
+ reg[31:0] counter_wait;
+ reg red_tmp,green_tmp;
+ // Next state
+ always @(posedge clk or negedge reset_n)
+ begin
+ if(~reset_n) 
+ current_state = IDLE;
+ else
+ current_state = next_state;
+ end
+ // counter_wait
+ always @(posedge clk or negedge reset_n) 
+ begin
+ if(~reset_n) 
+ counter_wait <= 0;
+ else if(current_state==WAIT_PASSWORD)
+ counter_wait <= counter_wait + 1;
+ else 
+ counter_wait <= 0;
+ end
+ // change state
+ always @(*)
+ begin
+ case(current_state)
+ IDLE: begin
+         if(sensor_entrance == 1)
+ next_state = WAIT_PASSWORD;
+ else
+ next_state = IDLE;
+ end
+ WAIT_PASSWORD: begin
+ if(counter_wait <= 3)
+ next_state = WAIT_PASSWORD;
+ else 
+ begin
+ if((password_1==2'b01)&&(password_2==2'b10))
+ next_state = RIGHT_PASS;
+ else
+ next_state = WRONG_PASS;
+ end
+ end
+ WRONG_PASS: begin
+ if((password_1==2'b01)&&(password_2==2'b10))
+ next_state = RIGHT_PASS;
+ else
+ next_state = WRONG_PASS;
+ end
+ RIGHT_PASS: begin
+ if(sensor_entrance==1 && sensor_exit == 1)
+ next_state = STOP;
+ else if(sensor_exit == 1)
+ next_state = IDLE;
+ else
+ next_state = RIGHT_PASS;
+ end
+ STOP: begin
+ if((password_1==2'b01)&&(password_2==2'b10))
+ next_state = RIGHT_PASS;
+ else
+ next_state = STOP;
+ end
+ default: next_state = IDLE;
+ endcase
+ end
+ // LEDs and output, change the period of blinking LEDs here
+ always @(posedge clk) begin 
+ case(current_state)
+ IDLE: begin
+ green_tmp = 1'b0;
+ red_tmp = 1'b0;
+ HEX_1 = 7'b1111111; // off
+ HEX_2 = 7'b1111111; // off
+ end
+ WAIT_PASSWORD: begin
+ green_tmp = 1'b0;
+ red_tmp = 1'b1;
+ HEX_1 = 7'b000_0110; // E
+ HEX_2 = 7'b010_1011; // n 
+ end
+ WRONG_PASS: begin
+ green_tmp = 1'b0;
+ red_tmp = ~red_tmp;
+ HEX_1 = 7'b000_0110; // E
+ HEX_2 = 7'b000_0110; // E 
+ end
+ RIGHT_PASS: begin
+ green_tmp = ~green_tmp;
+ red_tmp = 1'b0;
+ HEX_1 = 7'b000_0010; // 6
+ HEX_2 = 7'b100_0000; // 0 
+ end
+ STOP: begin
+ green_tmp = 1'b0;
+ red_tmp = ~red_tmp;
+ HEX_1 = 7'b001_0010; // 5
+ HEX_2 = 7'b000_1100; // P 
+ end
+ endcase
+ end
+ assign RED_LED = red_tmp  ;
+ assign GREEN_LED = green_tmp;
+
+endmodule
+```
+</details>
+<details>
+<summary>Testbench</summary>
+
+```
+module tb_parking_system;
+
+  // Inputs
+  reg clk;
+  reg reset_n;
+  reg sensor_entrance;
+  reg sensor_exit;
+  reg [1:0] password_1;
+  reg [1:0] password_2;
+
+  // Outputs
+  wire GREEN_LED;
+  wire RED_LED;
+  wire [6:0] HEX_1;
+  wire [6:0] HEX_2;
+  // Instantiate the Unit Under Test (UUT)
+  parking_system uut (
+  .clk(clk), 
+  .reset_n(reset_n), 
+  .sensor_entrance(sensor_entrance), 
+  .sensor_exit(sensor_exit), 
+  .password_1(password_1), 
+  .password_2(password_2), 
+  .GREEN_LED(GREEN_LED), 
+  .RED_LED(RED_LED), 
+  .HEX_1(HEX_1), 
+ .HEX_2(HEX_2)
+ );
+ initial begin
+ clk = 0;
+ forever #10 clk = ~clk;
+ end
+ initial begin
+ // Initialize Inputs
+ reset_n = 0;
+ sensor_entrance = 0;
+ sensor_exit = 0;
+ password_1 = 0;
+ password_2 = 0;
+ // Wait 100 ns for global reset to finish
+ #100;
+      reset_n = 1;
+ #20;
+ sensor_entrance = 1;
+ #1000;
+ sensor_entrance = 0;
+ password_1 = 1;
+ password_2 = 2;
+ #2000;
+ sensor_exit =1;
+ 
+ end
+    
+endmodule
+```
+</details>
+<details>
+<summary>Commands required to RUN-SIMULATE-CODE_COVERAGE</summary>
+	
+## Steps to start CADENCE on linux
+
+&gt; create a folder in the desktop, with your srn/name
+
+&gt; open the folder
+
+&gt; right-click and create files for design and testbench,
+eg. db_fsm.v and db_tb.v
+
+&gt; right-click on the files and open them using gedit, save the design and
+testbench codes in the respective files
+
+&gt; right-click inside the folder and select open in terminal
+
+&gt; enter the following commands in the terminal
+`csh`
+
+Enters the C-Shell
+
+`source /home/&lt;install location`
+&gt; `/cshrc`
+
+&gt; Navigates to the Cadence Tools install path and starts the tool
+
+Note: You can use the upper arrow in the terminal to navigate quickly to the already used paths/commands and use tab-key to auto-complete commands.
+
+&gt; A new window appears that welcomes the user to the Cadence Design Suite,the following tools can be invoked in this window.
+
+## Simulation Tool
+
+&gt;To start reading the design and testbench files, to obtain a waveform in the Graphical User Interface (simvision), enter the following commands.
+Note: No space between +access and +rw, but mandatory space between +rw and +gui. (make sure to follow all similar spacing patterns given in the tool reference)
+
+&gt; ncverilog &lt;design&gt; &lt;testbench&gt; +access+rw +gui
+
+eg. ncverilog db_fsm.v db_tb.v +access+rw +gui
+
+Note: the +gui starts up the ncverilog GUI window.
+
+&gt; navigate through the design hierarchy and select the signals you want to
+analyze in the design browser (hold down ctrl-key while selecting), right-click
+and select send to waveform
+
+&gt; in the simvision window, select the play button, followed by the pause button
+to start and stop the simulation. The simulation will end automatically if the
+$finish statement is executed in the HDL.
+
+&gt; select the ‘=’ symbol at the top right corner of the window, to fit the
+waveform’s entirety in the same frame.
+
+&gt; drag the red marker to the beginning of the waveform and select on the ‘+’
+symbol on the top right corner, to magnify until the waveform pulses are
+visible for verifying the functionality of the design.
+
+## Code Coverage Check
+
+&gt; ncverilog design.v tb.v +access+rw +gui +nccoverage+all
+
+&gt; Check for the path of the file “cov_work” generated in the terminal then
+type:
+
+(Invoke Incisive Metrics Center)
+
+&gt;enter the command ‘imc’ in the terminal which will launch the IMC GUI.
+
+`imc`
+
+&gt; In he IMC’s Graphical User Interface, you can navigate and select the file to
+check the Code Coverage (block, branch, expression, toggle) and FSM
+Coverage, represented in percentages.
+</details>
+<details>
+<summary>Gate-Level-Simulation</summary>
+
+![WhatsApp Image 2023-10-25 at 16 02 13_756b86be](https://github.com/ShashidharReddy01/FFVDD/assets/142148810/ba8b7af7-30aa-4c53-aa59-4524f9a23f38)
+
+</details>
+<details>
+<summary>Code Coverage</summary>
+  
+![WhatsApp Image 2023-10-25 at 16 02 13_ab159753](https://github.com/ShashidharReddy01/FFVDD/assets/142148810/8fe49278-5036-461e-99bb-6288c754719a)
+
+</details>
