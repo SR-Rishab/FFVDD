@@ -243,7 +243,7 @@ testbench codes in the respective files
 
 Enters the C-Shell
 
-`source /home/&lt;install location`
+`source /home/install/cshrc`
 &gt; `/cshrc`
 
 &gt; Navigates to the Cadence Tools install path and starts the tool
@@ -257,9 +257,9 @@ Note: You can use the upper arrow in the terminal to navigate quickly to the alr
 &gt;To start reading the design and testbench files, to obtain a waveform in the Graphical User Interface (simvision), enter the following commands.
 Note: No space between +access and +rw, but mandatory space between +rw and +gui. (make sure to follow all similar spacing patterns given in the tool reference)
 
-&gt; ncverilog &lt;design&gt; &lt;testbench&gt; +access+rw +gui
+&gt; `ncverilog <design> <testbench> +access+rw +gui`
 
-eg. ncverilog db_fsm.v db_tb.v +access+rw +gui
+eg. `ncverilog db_fsm.v db_tb.v +access+rw +gui`
 
 Note: the +gui starts up the ncverilog GUI window.
 
@@ -280,7 +280,7 @@ visible for verifying the functionality of the design.
 
 ## Code Coverage Check
 
-&gt; ncverilog design.v tb.v +access+rw +gui +nccoverage+all
+&gt; `ncverilog design.v tb.v +access+rw +gui +nccoverage+all`
 
 &gt; Check for the path of the file “cov_work” generated in the terminal then
 type:
@@ -296,7 +296,7 @@ check the Code Coverage (block, branch, expression, toggle) and FSM
 Coverage, represented in percentages.
 </details>
 <details>
-<summary>Gate-Level-Simulation</summary>
+<summary>Simulation results</summary>
 
 ![WhatsApp Image 2023-10-25 at 16 02 13_756b86be](https://github.com/ShashidharReddy01/FFVDD/assets/142148810/ba8b7af7-30aa-4c53-aa59-4524f9a23f38)
 
