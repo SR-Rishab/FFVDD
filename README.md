@@ -312,6 +312,9 @@ Coverage, represented in percentages.
 	<summary>Layered Testbench</summary>
 <details>
 <summary>Code Coverage</summary>
+
+ ![WhatsApp Image 2023-11-22 at 17 39 12_43368b7d](https://github.com/ShashidharReddy01/FFVDD/assets/142148810/243d4ff5-3b00-449a-accb-5a9ed383ae46)
+
 </details>
 <details>
 <summary>Simulation</summary>
