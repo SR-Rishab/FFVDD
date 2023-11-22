@@ -1,8 +1,0 @@
-`include "transaction.sv" 
-`include "generator.sv"
-`include "interface.sv"
-`include "driver.sv"
-`include "environment.sv"
-`include "program.sv"
-`include "parking_system.v"
-`include "tb_top.sv"
