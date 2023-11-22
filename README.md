@@ -464,7 +464,7 @@ class scoreboard;
 		transaction trans;
 		gen2bfm.get(trans);
 		$display("Transaction no=%0d",no_transactions);
-		intf.bfm_cb.sw<=trans.sv;
+		intf.bfm_cb.sw<=trans.sw;
 		repeat(2)@(posedge intf.clk);
 		trans.db=intf.bfm_cb.db;
 		trans.display();
