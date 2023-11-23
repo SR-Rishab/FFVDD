@@ -453,8 +453,8 @@ class scoreboard;
 	task reset;
 		wait(intf.reset);
 		$display("Resetting is on");
-		intf.bfm_cb.sw<=0;
-		//intf.bfm_cb.db<=0;
+		intf.bfm_cb.red_led<=0;
+		//intf.bfm_cb.green_led<=0;
 		wait(!intf.reset);
 		$display("Reset done");
 	endtask
@@ -464,9 +464,9 @@ class scoreboard;
 		transaction trans;
 		gen2bfm.get(trans);
 		$display("Transaction no=%0d",no_transactions);
-		intf.bfm_cb.sw<=trans.sw;
+		intf.bfm_cb.sw<=trans.red_led;
 		repeat(2)@(posedge intf.clk);
-		trans.db=intf.bfm_cb.db;
+		trans.db=intf.bfm_cb.green_led;
 		trans.display();
 		no_transactions++;
 		end 
