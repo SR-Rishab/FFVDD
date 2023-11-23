@@ -243,7 +243,7 @@ testbench codes in the respective files
 
 Enters the C-Shell
 
-`source /home/install/cshrc`
+`source /home/&lt;install location`
 &gt; `/cshrc`
 
 &gt; Navigates to the Cadence Tools install path and starts the tool
@@ -257,9 +257,9 @@ Note: You can use the upper arrow in the terminal to navigate quickly to the alr
 &gt;To start reading the design and testbench files, to obtain a waveform in the Graphical User Interface (simvision), enter the following commands.
 Note: No space between +access and +rw, but mandatory space between +rw and +gui. (make sure to follow all similar spacing patterns given in the tool reference)
 
-&gt; `ncverilog <design> <testbench> +access+rw +gui`
+&gt; ncverilog &lt;design&gt; &lt;testbench&gt; +access+rw +gui
 
-eg. `ncverilog db_fsm.v db_tb.v +access+rw +gui`
+eg. ncverilog db_fsm.v db_tb.v +access+rw +gui
 
 Note: the +gui starts up the ncverilog GUI window.
 
@@ -280,7 +280,7 @@ visible for verifying the functionality of the design.
 
 ## Code Coverage Check
 
-&gt; `ncverilog design.v tb.v +access+rw +gui +nccoverage+all`
+&gt; ncverilog design.v tb.v +access+rw +gui +nccoverage+all
 
 &gt; Check for the path of the file “cov_work” generated in the terminal then
 type:
@@ -296,7 +296,7 @@ check the Code Coverage (block, branch, expression, toggle) and FSM
 Coverage, represented in percentages.
 </details>
 <details>
-<summary>Simulation results</summary>
+<summary>Gate-Level-Simulation</summary>
 
 ![WhatsApp Image 2023-10-25 at 16 02 13_756b86be](https://github.com/ShashidharReddy01/FFVDD/assets/142148810/ba8b7af7-30aa-4c53-aa59-4524f9a23f38)
 
@@ -305,5 +305,368 @@ Coverage, represented in percentages.
 <summary>Code Coverage</summary>
   
 ![WhatsApp Image 2023-10-25 at 16 02 13_ab159753](https://github.com/ShashidharReddy01/FFVDD/assets/142148810/8fe49278-5036-461e-99bb-6288c754719a)
+
+</details>
+
+<details>
+	<summary>Layered Testbench</summary>
+<details>
+<summary>Code Coverage</summary>
+
+ ![WhatsApp Image 2023-11-22 at 17 39 12_43368b7d](https://github.com/ShashidharReddy01/FFVDD/assets/142148810/243d4ff5-3b00-449a-accb-5a9ed383ae46)
+
+</details>
+<details>
+<summary>Simulation</summary>
+	
+![image](https://github.com/ShashidharReddy01/FFVDD/assets/142148810/b1f739e3-bcc8-43e5-a67a-7e201a1f8dc1)
+</details>
+
+
+<details>
+<summary>Defines</summary>
+
+ ```
+`include "transaction.sv" 
+`include "generator.sv"
+`include "interface.sv"
+`include "driver.sv"
+`include "environment.sv"
+`include "program.sv"
+`include "parking_system.v"
+`include "tb_top.sv"
+```
+</details>
+<details>
+<summary>Driver</summary>
+
+ ```
+class driver;
+mailbox gen2driv;
+virtual intf vif;
+int no_transactions;
+function new(virtual intf vif,mailbox gen2driv);
+this.vif = vif;
+this.gen2driv = gen2driv;
+endfunction
+task reset_n;
+wait(vif.reset_n);
+$display("reset_n started");
+vif.sensor_entrance <= 0; 
+vif.sensor_exit <= 0;
+vif.password_1 <= 0;
+vif.password_2 <= 0;
+wait(!vif.reset_n);
+$display("reset_n ended");
+endtask
+
+task main;
+forever begin transaction trans; 
+gen2driv.get(trans);
+$display ("TRANSACTION NO = %0h", no_transactions) ;
+vif.sensor_entrance <= trans.sensor_entrance;
+vif.sensor_exit <= trans.sensor_exit;
+vif.password_1 <= trans.password_1;
+vif.password_2 <= trans.password_2; 
+@(posedge vif.clk);
+trans.GREEN_LED = vif.GREEN_LED;
+trans.RED_LED = vif.RED_LED;
+trans.HEX_1 = vif.HEX_1;
+trans.HEX_2 = vif.HEX_2;
+trans.display("OUTPUT");
+@(posedge vif.clk);
+no_transactions++;
+end endtask
+endclass
+
+```
+</details>
+<details>
+<summary>Environment</summary>
+
+ ```
+class environment;
+generator gen; 
+driver driv;
+mailbox gen2driv;
+virtual intf vif;
+event ended;
+function new(virtual intf vif);
+this.vif = vif;
+gen2driv = new();
+gen = new(gen2driv, ended);
+driv = new(vif,gen2driv);
+endfunction
+task pre_test; driv.reset_n();
+endtask
+
+task test;
+fork gen.main();
+driv.main();
+join_any;
+endtask
+task post_test;
+wait(ended.triggered);
+wait (gen.repeat_count == driv.no_transactions);
+endtask
+task run;
+pre_test();
+test();
+post_test();
+$finish;
+endtask
+endclass
+```
+</details>
+<details>
+<summary>Interface</summary>
+
+ ```
+interface intf(input logic clk,reset_n);
+logic sensor_entrance;
+logic sensor_exit;
+logic [1:0] password_1;
+logic [1:0] password_2;
+logic GREEN_LED;
+logic RED_LED;
+logic [6:0] HEX_1;
+logic [6:0] HEX_2;
+
+endinterface
+```
+</details>
+<details>
+<summary>Scoreboard</summary>
+
+ ```
+class scoreboard;
+
+	virtual parkingsystem_intf intf;
+	mailbox gen2bfm;
+	int no_transactions;
+	
+	function new(virtual parkingsystem_intf intf ,mailbox gen2bfm);
+	this.intf=intf;
+	this.gen2bfm=gen2bfm;
+	endfunction
+	
+	task reset;
+		wait(intf.reset);
+		$display("Resetting is on");
+		intf.bfm_cb.RED_LED<=0;
+		//intf.bfm_cb.GREEN_LED<=0;
+		wait(!intf.reset);
+		$display("Reset done");
+	endtask
+	
+	task main;
+		forever begin
+		transaction trans;
+		gen2bfm.get(trans);
+		$display("Transaction no=%0d",no_transactions);
+		intf.bfm_cb.RED_LED<=trans.RED_LED;
+		repeat(2)@(posedge intf.clk);
+		trans.GREEN_LED=intf.bfm_cb.GREEN_LED;
+		trans.display();
+		no_transactions++;
+		end 
+	endtask
+endclass 
+```
+</details>
+<details>
+<summary>tb_top</summary>
+
+ ```
+module tb_top;
+bit clk;
+bit reset_n;
+intf vif(clk,reset_n);
+test t1(vif);
+parking_system dut(.clk(vif.clk),.reset_n(vif.reset_n),.sensor_entrance(vif.sensor_entrance),.sensor_exit(vif.sensor_exit),.password_1(vif.password_1),.password_2(vif.password_2),
+.GREEN_LED(vif.GREEN_LED),
+.RED_LED(vif.RED_LED),
+.HEX_1(vif.HEX_1),
+.HEX_2(vif.HEX_2)
+);
+
+always #5 clk = ~clk;
+always #100 reset_n = ~reset_n;
+initial begin
+reset_n = 1;
+end
+
+cov_idle: cover property (@(posedge clk) (clk==1) ##1 (clk==0));
+cov_something: cover property (@(posedge clk) (vif.sensor_entrance==1) ##1 (vif.GREEN_LED==1));
+endmodule
+
+/*
+// States
+cov_idle: cover property (@(posedge clk) (state==IDLE)); //Tests if idle state is reached
+cov_wait_password: cover property (@(posedge clk) (state==WAIT_PASSWORD)); //Tests if wait password state is reached
+cov_wrong_pass: cover property (@(posedge clk) (state==WRONG_PASS));//Tests if wrong password state is reached
+cov_right_pass: cover property (@(posedge clk) (state==RIGHT_PASS));//Tests if right password state is reached
+cov_stop: cover property (@(posedge clk) (state==STOP));//Tests if stop state is reached
+
+// Transitions
+cov_idle_to_wait_password: cover property (@(posedge clk) (state==IDLE) ##1 (state==WAIT_PASSWORD));
+cov_wait_password_to_right_pass: cover property (@(posedge clk) (state==WAIT_PASSWORD) ##1 (state==RIGHT_PASS));
+cov_wait_password_to_wrong_pass: cover property (@(posedge clk) (state==WAIT_PASSWORD) ##1 (state==WRONG_PASS));
+cov_right_pass_to_stop: cover property (@(posedge clk) (state==RIGHT_PASS) ##1 (state==STOP));
+cov_wrong_pass_to_right_pass: cover property (@(posedge clk) (state==WRONG_PASS) ##1 (state==RIGHT_PASS));
+cov_wrong_pass_to_wrong_pass: cover property (@(posedge clk) (state==WRONG_PASS) ##1 (state==WRONG_PASS));
+cov_right_pass_to_right_pass: cover property (@(posedge clk) (state==RIGHT_PASS) ##1 (state==RIGHT_PASS));
+cov_right_stop_to_stop: cover property (@(posedge clk) (state==STOP) ##1 (state==STOP));
+*/
+```
+</details>
+<details>
+<summary>Transaction</summary>
+
+ ```
+class transaction;
+rand bit sensor_entrance;
+rand bit sensor_exit;
+rand bit [1:0] password_1;
+rand bit [1:0] password_2;
+bit GREEN_LED;
+bit RED_LED;
+bit [6:0] HEX_1;
+bit [6:0] HEX_2;
+function void display(string name);
+$display("--------");
+$display("\t sensor entrance = %0b, \t sensor exit = %0h, \t password 1 = %0h, \t password 1 = %0h",sensor_entrance,sensor_exit,password_1,password_2);
+$display("\t GREEN_LED = %0b, \t RED_LED = %0b, HEX_1 = %0h, \t HEX_2 = %0h",GREEN_LED,RED_LED,HEX_1,HEX_2);
+$display("--------");
+endfunction
+endclass
+```
+</details>
+<details>
+<summary>Assertions</summary>
+
+ ```
+module assertions;
+
+//states
+property p1;
+@(posedge clk) (state==IDLE); //Tests if idle state is reached
+endproperty
+a1:assert property(p1);
+
+property p2;
+@(posedge clk) (state==WAIT_PASSWORD); //Tests if wait password state is reached
+endproperty
+a2:assert property(p2);
+
+property p3;
+@(posedge clk) (state==WRONG_PASS);//Tests if wrong password state is reached
+endproperty
+a3:assert property(p3);
+
+property p4;
+@(posedge clk) (state==RIGHT_PASS);//Tests if right password state is reached
+endproperty
+a4:assert property(p4);
+
+
+property p5;
+@(posedge clk) (state==STOP);//Tests if stop state is reached
+endproperty
+a5:assert property(p5);
+
+
+//transitions
+property p6;
+@(posedge clk) (state==IDLE) ##1 (state==WAIT_PASSWORD);
+endproperty
+a6:assert property(p6);
+
+property p7;
+@(posedge clk) (state==WAIT_PASSWORD) ##1 (state==RIGHT_PASS);
+endproperty
+a7:assert property(p7);
+
+property p8;
+@(posedge clk) (state==WAIT_PASSWORD) ##1 (state==WRONG_PASS);
+endproperty
+a8:assert property(p8);
+
+property p9;
+@(posedge clk) (state==RIGHT_PASS) ##1 (state==STOP);
+endproperty
+a9:assert property(p9);
+
+property p10;
+@(posedge clk) (state==WRONG_PASS) ##1 (state==RIGHT_PASS);
+endproperty
+a10:assert property(p10);
+
+property p11;
+@(posedge clk) (state==WRONG_PASS) ##1 (state==WRONG_PASS);
+endproperty
+a11:assert property(p11);
+
+property p12;
+@(posedge clk) (state==RIGHT_PASS) ##1 (state==RIGHT_PASS);
+endproperty
+a12:assert property(p12);
+
+property p13;
+@(posedge clk) (state==STOP) ##1 (state==STOP);
+endproperty
+a13:assert property(p13);
+
+endmodule
+```
+</details>
+<details>
+<summary>Cover Properties</summary>
+
+ ```
+module cover_properties;
+
+// States
+cov_idle: cover property (@(posedge clk) (state==IDLE); //Tests if idle state is reached
+cov_wait_password: cover property (@(posedge clk) state==WAIT_PASSWORD); //Tests if wait password state is reached
+cov_wrong_pass: cover property (@(posedge clk) state==WRONG_PASS);//Tests if wrong password state is reached
+cov_right_pass: cover property (@(posedge clk) state==RIGHT_PASS);//Tests if right password state is reached
+cov_stop: cover property (@(posedge clk) state==STOP);//Tests if stop state is reached
+
+// Transitions
+cov_idle_to_wait_password: cover property (@(posedge clk) (state==IDLE ##1 state==WAIT_PASSWORD));
+cov_wait_password_to_right_pass: cover property (@(posedge clk) (state==WAIT_PASSWORD ##1 state==RIGHT_PASS));
+cov_wait_password_to_wrong_pass: cover property (@(posedge clk) (state==WAIT_PASSWORD ##1 state==WRONG_PASS));
+cov_right_pass_to_stop: cover property (@(posedge(clk) (state==RIGHT_PASS ##1 state==STOP));
+cov_wrong_pass_to_right_pass: cover property (@(posedge clk) (state==WRONG_PASS ##1 state==RIGHT_PASS));
+cov_wrong_pass_to_wrong_pass: cover property (@(posedge clk) (state==WRONG_PASS ##1 state==WRONG_PASS));
+cov_right_pass_to_right_pass: cover property (@(posedge clk) (state==RIGHT_PASS ##1 state==RIGHT_PASS));
+cov_right_stop_to_stop: cover property (@(posedge clk) (state==STOP ##1 state==STOP));
+
+endmodule
+```
+</details>
+<details>
+<summary>Generator</summary>
+
+ ```
+class generator;
+rand transaction trans; mailbox gen2driv; int repeat_count;
+event ended;
+function new(mailbox gen2driv, event ended);
+this.gen2driv = gen2driv;
+this.ended = ended;
+endfunction
+task main;
+repeat (repeat_count) begin
+trans = new();
+if(!trans.randomize()) $fatal("Randomization Failed");
+gen2driv.put (trans);
+end
+-> ended;
+endtask
+endclass
+```
+</details>
 
 </details>
